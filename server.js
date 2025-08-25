@@ -20,6 +20,10 @@ db.once('open', () => {
     console.log('Connected to the database');
 });
 
+app.get('/', (req, res) => {
+    res.send('Discussion Board API is running!');
+});
+
 // Define routes here
 
 app.listen(PORT, () => {
