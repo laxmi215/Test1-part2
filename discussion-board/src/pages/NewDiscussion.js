@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import api from '../utils/api';
+import React, { useEffect, useState } from 'react';
+import { createDiscussion } from '../../../frontend/api';
 import { useNavigate } from 'react-router-dom';
 
 const NewDiscussion = () => {
@@ -7,13 +7,18 @@ const NewDiscussion = () => {
     const [content, setContent] = useState('');
     const navigate = useNavigate();
 
+    useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            window.location.href = '/login';
+        }
+    }, []);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         try {
-            await api.post('/discussions', { title, content }, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await createDiscussion({ title, content }, token);
             navigate('/discussions');
         } catch (error) {
             console.error("Error creating discussion:", error);
