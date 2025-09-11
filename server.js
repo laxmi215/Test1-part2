@@ -130,18 +130,27 @@ app.get('/', async (req, res) => {
                 </ul>
             </div>
             <script>
-                alert('DEBUG: Script loaded and running (main page)');
+                alert("DEBUG: Script loaded and running (main page)");
                 // Escape JS string for safe alert display
-                function escapeJsString(str) {
-                  return String(str)
-                    .replace(/\\/g, "\\\\")
-                    .replace(/'/g, "\\'")
-                    .replace(/\n/g, "\\n")
-                    .replace(/\r/g, "\\r")
-                    .replace(/\u2028/g, "\\u2028")
-                    .replace(/\u2029/g, "\\u2029");
-                }
-
+        /*        function escapeJsString(str) {
+                                    return String(str)
+                                        .replace(/\\/g, "\\\\")      // Escape backslash
+                                        .replace(/'/g, "\\'")            // Escape single quote (no backslash in regex)
+                                        .replace(/\"/g, '\\\"')          // Escape double quote
+                                        .replace(/\n/g, "\\n")         // Escape newline
+                                        .replace(/\r/g, "\\r")         // Escape carriage return
+                                        .replace(/\t/g, "\\t")         // Escape tab
+                                        .replace(/\u2028/g, "\\u2028") // Escape line separator
+                                        .replace(/\u2029/g, "\\u2029"); // Escape paragraph separator
+                } */
+function escapeJsString(str) {
+                                    return String(str)
+                                        .replace(/'/g, "\\'")            // Escape single quote (no backslash in regex)
+                                        .replace(/\"/g, '\\\"')          // Escape double quote
+                                        .replace(/\t/g, "\\t")         // Escape tab
+                                        .replace(/\u2028/g, "\\u2028") // Escape line separator
+                                        .replace(/\u2029/g, "\\u2029"); // Escape paragraph separator
+    }
                 // Decode JWT to get userId
                 function getUserIdFromToken() {
                   const token = window.localStorage.getItem('authToken');
@@ -270,6 +279,7 @@ app.get('/discussion/:id', async (req, res) => {
                                     try {
                                         const payload = JSON.parse(atob(token.split('.')[1]));
                                         return payload.id;
+                alert('FORCE ALERT: This popup should always appear when the page loads.');
                                     } catch (e) {
                                         return null;
                                     }
