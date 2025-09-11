@@ -1,0 +1,46 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f7f9fc;
+}
+
+form {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 32px;
+  margin: 32px auto;
+  max-width: 400px;
+}
+
+input[type="text"], input[type="email"], input[type="password"], input[type="tel"] {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 12px;
+  border: 1px solid #cfd8dc;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  background: #f0f4fa;
+  transition: box-shadow 0.2s;
+}
+
+input:focus {
+  box-shadow: 0 2px 6px rgba(33,150,243,0.15);
+  outline: none;
+}
+
+button {
+  border: none;
+  border-radius: 12px;
+  background: #90caf9;
+  color: #fff;
+  padding: 10px 24px;
+  margin: 12px 8px 0 0;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #42a5f5;
+}

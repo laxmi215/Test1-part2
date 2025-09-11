@@ -8,11 +8,16 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
     try {
         const { username, password } = req.body;
+        // Check if user already exists
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.status(400).json({ success: false, message: 'Email is already registered.' });
+        }
         const user = new User({ username, password });
         await user.save();
-        res.status(201).send('User registered successfully');
+        res.status(201).json({ success: true, message: 'User registered successfully' });
     } catch (error) {
-        res.status(400).send(error.message);
+        res.status(400).json({ success: false, message: error.message });
     }
 });
 

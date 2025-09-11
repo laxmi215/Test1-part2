@@ -1,9 +1,24 @@
+// Escape HTML utility
+function escapeHtml(text) {
+    return typeof text === 'string' ? text.replace(/[&<>"]'/g, function (match) {
+        const escape = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return escape[match];
+    }) : text;
+}
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const app = express();
+// Serve static files from public directory
+app.use(express.static('public'));
 const PORT = 5000;
 
 app.use(cors());
@@ -21,159 +36,65 @@ db.once('open', () => {
 });
 
 app.get('/', async (req, res) => {
-    const Post = require('./models/Post');
-    let posts = [];
-    try {
-        posts = await Post.find();
-    } catch (err) {
-        // Ignore errors for now
-    }
+        const Post = require('./models/Post');
+        const User = require('./models/User');
+        let posts = [];
+        try {
+                posts = await Post.find();
+        } catch (err) {
+                // Ignore errors for now
+        }
 
-    const discussionOptions = posts.map(
-        post => `<option value="${post._id}">${post.title}</option>`
-    ).join('');
+            // Helper to get username from userId
+            async function getUsername(userId) {
+                if (!userId) return 'UNKNOWN';
+                try {
+                    const user = await User.findById(userId);
+                    return user ? user.username : 'UNKNOWN';
+                } catch {
+                    return 'UNKNOWN';
+                }
+            }
 
-    const discussionList = posts.map(
-        post => `
-        <li class="discussion-item">
-            <div class="discussion-box">
-                <strong class="discussion-title">${post.title}</strong>
-                <p class="discussion-content">${post.content}</p>
-                <button class="view-btn" onclick="window.location.href='/discussion/${post._id}'">View</button>
-                <ul class="comment-list">
-                    ${(post.comments || []).map(comment =>
-                        `<li class="comment-item">${comment.text}</li>`
-                    ).join('')}
-                </ul>
-            </div>
-        </li>
-        `
-    ).join('');
+            // Build discussion list with usernames
+            async function buildDiscussionList() {
+                let html = '';
+                for (const post of posts) {
+                const postUser = await getUsername(post.userId);
+                const postUserId = post.userId ? post.userId.toString() : 'UNKNOWN';
+                let commentsHtml = '';
+                for (const comment of post.comments || []) {
+                    const commentUser = await getUsername(comment.userId);
+                    const commentUserId = comment.userId ? comment.userId.toString() : 'UNKNOWN';
+                    commentsHtml += `<li class="comment-item">${escapeHtml(comment.text)} <em>by ${escapeHtml(commentUser)} (${escapeHtml(commentUserId)})</em></li>`;
+                }
+                html += `<li class="discussion-item">
+                    <div class="discussion-box">
+                        <strong class="discussion-title">${escapeHtml(post.title)}</strong>
+                        <p class="discussion-content">${escapeHtml(post.content)}</p>
+                        <p><em>Posted by: ${escapeHtml(postUser)} (${escapeHtml(postUserId)})</em></p>
+                        <button class="view-btn" onclick="window.location.href='/discussion/${post._id}'">View</button>
+                        <ul class="comment-list">
+                            ${commentsHtml}
+                        </ul>
+                    </div>
+                </li>`;
+                }
+                return html;
+            }
+
+            const discussionOptions = posts.map(
+                    post => `<option value="${post._id}">${escapeHtml(post.title)}</option>`
+            ).join('');
+
+            const discussionList = await buildDiscussionList();
 
     res.send(`
         <!DOCTYPE html>
         <html>
         <head>
             <title>Discussion Board</title>
-            <style>
-                body {
-                    font-family: 'Segoe UI', Arial, sans-serif;
-                    margin: 0;
-                    background: #f4f6fb;
-                    color: #222;
-                }
-                .container {
-                    max-width: 800px;
-                    margin: 40px auto;
-                    background: #fff;
-                    border-radius: 16px;
-                    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-                    padding: 32px 40px;
-                }
-                h1 {
-                    color: #3a7bd5;
-                    margin-bottom: 24px;
-                    text-align: center;
-                }
-                h2 {
-                    margin-top: 32px;
-                    color: #3a7bd5;
-                }
-                form {
-                    margin-bottom: 32px;
-                    background: #eaf1fb;
-                    padding: 24px;
-                    border-radius: 12px;
-                    box-shadow: 0 2px 8px rgba(58,123,213,0.05);
-                }
-                label {
-                    display: block;
-                    margin-top: 12px;
-                    font-weight: 500;
-                }
-                input, textarea, select {
-                    width: 100%;
-                    padding: 10px 12px;
-                    margin-top: 6px;
-                    border: 1px solid #bcd0ee;
-                    border-radius: 8px;
-                    font-size: 1rem;
-                    background: #f8fbff;
-                    transition: border-color 0.2s;
-                }
-                input:focus, textarea:focus, select:focus {
-                    border-color: #3a7bd5;
-                    outline: none;
-                }
-                button {
-                    margin-top: 16px;
-                    padding: 10px 24px;
-                    background: linear-gradient(90deg, #3a7bd5 0%, #00d2ff 100%);
-                    color: #fff;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 1rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    box-shadow: 0 2px 8px rgba(58,123,213,0.12);
-                    transition: background 0.2s;
-                }
-                button:hover {
-                    background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
-                }
-                ul {
-                    margin-top: 24px;
-                    padding-left: 0;
-                }
-                .discussion-item {
-                    list-style: none;
-                    margin-bottom: 32px;
-                }
-                .discussion-box {
-                    background: #f8fbff;
-                    border-radius: 12px;
-                    padding: 20px 24px;
-                    box-shadow: 0 2px 8px rgba(58,123,213,0.07);
-                    border-left: 6px solid #3a7bd5;
-                }
-                .discussion-title {
-                    font-size: 1.2rem;
-                    color: #3a7bd5;
-                    font-weight: 700;
-                }
-                .discussion-content {
-                    margin: 12px 0 8px 0;
-                    color: #222;
-                }
-                .view-btn {
-                    background: #fff;
-                    color: #3a7bd5;
-                    border: 2px solid #3a7bd5;
-                    border-radius: 8px;
-                    padding: 6px 16px;
-                    font-weight: 600;
-                    margin-bottom: 12px;
-                    transition: background 0.2s, color 0.2s;
-                }
-                .view-btn:hover {
-                    background: #3a7bd5;
-                    color: #fff;
-                }
-                .comment-list {
-                    margin-top: 12px;
-                    margin-left: 0;
-                    padding-left: 0;
-                }
-                .comment-item {
-                    background: #eaf1fb;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    margin-bottom: 6px;
-                    color: #444;
-                    list-style: none;
-                    box-shadow: 0 1px 4px rgba(58,123,213,0.04);
-                }
-            </style>
+        <link rel="stylesheet" href="/discussion-board.css">
         </head>
         <body>
             <div class="container">
@@ -209,37 +130,74 @@ app.get('/', async (req, res) => {
                 </ul>
             </div>
             <script>
+                alert('DEBUG: Script loaded and running (main page)');
+                // Escape JS string for safe alert display
+                function escapeJsString(str) {
+                  return String(str)
+                    .replace(/\\/g, "\\\\")
+                    .replace(/'/g, "\\'")
+                    .replace(/\n/g, "\\n")
+                    .replace(/\r/g, "\\r")
+                    .replace(/\u2028/g, "\\u2028")
+                    .replace(/\u2029/g, "\\u2029");
+                }
+
+                // Decode JWT to get userId
+                function getUserIdFromToken() {
+                  const token = window.localStorage.getItem('authToken');
+                  if (!token) return null;
+                  try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    return payload.id;
+                  } catch (e) {
+                    return null;
+                  }
+                }
+
                 document.getElementById('new-discussion-form').addEventListener('submit', async function(e) {
                     e.preventDefault();
                     const title = document.getElementById('title').value;
                     const content = document.getElementById('content').value;
+                    const userId = getUserIdFromToken();
                     const res = await fetch('/posts', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title, content })
+                        body: JSON.stringify({ title, content, userId })
                     });
                     if (res.ok) {
                         alert('Discussion created!');
                         location.reload();
                     } else {
-                        alert('Error creating discussion');
+                        alert('Error creating discussion. Title: ' + escapeJsString(title) + '\nContent: ' + escapeJsString(content) + '\nUserID: ' + escapeJsString(userId));
                     }
                 });
 
                 document.getElementById('comment-form').addEventListener('submit', async function(e) {
                     e.preventDefault();
-                    const discussionId = document.getElementById('discussion').value;
-                    const comment = document.getElementById('comment').value;
-                    const res = await fetch('/posts/' + discussionId + '/comments', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ comment })
-                    });
-                    if (res.ok) {
-                        alert('Comment posted!');
-                        location.reload();
-                    } else {
-                        alert('Error posting comment');
+                    alert('DEBUG: Submit button pressed for comment form (main page)');
+                    console.log('Comment form submit handler triggered (main page)');
+                    var discussionId = document.getElementById('discussion').value;
+                    var comment = document.getElementById('comment').value;
+                    var userId = getUserIdFromToken();
+                    var titleElem = document.querySelector('#discussion option[value="' + discussionId + '"]');
+                    var title = titleElem ? titleElem.textContent : 'UNKNOWN';
+                    var contentElem = document.querySelector('.discussion-content');
+                    var content = contentElem ? contentElem.textContent : 'UNKNOWN';
+                    alert('DEBUG: About to fetch POST for comment.\nUserID: ' + escapeJsString(userId) + '\nTitle: ' + escapeJsString(title) + '\nContent: ' + escapeJsString(content));
+                    try {
+                        var res = await fetch('/posts/' + discussionId + '/comments', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ comment, userId })
+                        });
+                        if (res.ok) {
+                            alert('Comment posted!');
+                            location.reload();
+                        } else {
+                            alert('Error posting comment. Title: ' + escapeJsString(title) + '\nContent: ' + escapeJsString(content) + '\nUserID: ' + escapeJsString(userId));
+                        }
+                    } catch (err) {
+                        alert('Network or script error posting comment. Title: ' + escapeJsString(title) + '\nContent: ' + escapeJsString(content) + '\nUserID: ' + escapeJsString(userId) + '\nError: ' + escapeJsString(err));
                     }
                 });
             </script>
@@ -261,119 +219,29 @@ app.get('/discussion/:id', async (req, res) => {
         return res.status(404).send('Discussion not found');
     }
 
-    const commentsHtml = (post.comments || []).map(c =>
-        `<li class="comment-item">${c.text}</li>`
-    ).join('');
+        const User = require('./models/User');
+        async function getUsername(userId) {
+            if (!userId) return 'UNKNOWN';
+            try {
+                const user = await User.findById(userId);
+                return user ? user.username : 'UNKNOWN';
+            } catch {
+                return 'UNKNOWN';
+            }
+        }
+        let commentsHtml = '';
+            for (const c of post.comments || []) {
+                const commentUser = await getUsername(c.userId);
+                const commentUserId = c.userId ? c.userId.toString() : 'UNKNOWN';
+                commentsHtml += `<li class="comment-item">${c.text} <em>by ${commentUser} (${commentUserId})</em></li>`;
+        }
 
     res.send(`
         <!DOCTYPE html>
         <html>
         <head>
             <title>${post.title} - Discussion Board</title>
-            <style>
-                body {
-                    font-family: 'Segoe UI', Arial, sans-serif;
-                    margin: 0;
-                    background: #f4f6fb;
-                    color: #222;
-                }
-                .container {
-                    max-width: 700px;
-                    margin: 40px auto;
-                    background: #fff;
-                    border-radius: 16px;
-                    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-                    padding: 32px 40px;
-                }
-                h1 {
-                    color: #3a7bd5;
-                    margin-bottom: 16px;
-                }
-                h2 {
-                    margin-top: 32px;
-                    color: #3a7bd5;
-                }
-                .discussion-box {
-                    background: #f8fbff;
-                    border-radius: 12px;
-                    padding: 20px 24px;
-                    box-shadow: 0 2px 8px rgba(58,123,213,0.07);
-                    border-left: 6px solid #3a7bd5;
-                    margin-bottom: 24px;
-                }
-                .discussion-title {
-                    font-size: 1.2rem;
-                    color: #3a7bd5;
-                    font-weight: 700;
-                }
-                .discussion-content {
-                    margin: 12px 0 8px 0;
-                    color: #222;
-                }
-                a {
-                    color: #3a7bd5;
-                    text-decoration: none;
-                    font-weight: 500;
-                    margin-bottom: 24px;
-                    display: inline-block;
-                }
-                form {
-                    margin-bottom: 32px;
-                    background: #eaf1fb;
-                    padding: 24px;
-                    border-radius: 12px;
-                    box-shadow: 0 2px 8px rgba(58,123,213,0.05);
-                }
-                label {
-                    display: block;
-                    margin-top: 12px;
-                    font-weight: 500;
-                }
-                input, textarea {
-                    width: 100%;
-                    padding: 10px 12px;
-                    margin-top: 6px;
-                    border: 1px solid #bcd0ee;
-                    border-radius: 8px;
-                    font-size: 1rem;
-                    background: #f8fbff;
-                    transition: border-color 0.2s;
-                }
-                input:focus, textarea:focus {
-                    border-color: #3a7bd5;
-                    outline: none;
-                }
-                button {
-                    margin-top: 16px;
-                    padding: 10px 24px;
-                    background: linear-gradient(90deg, #3a7bd5 0%, #00d2ff 100%);
-                    color: #fff;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 1rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    box-shadow: 0 2px 8px rgba(58,123,213,0.12);
-                    transition: background 0.2s;
-                }
-                button:hover {
-                    background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
-                }
-                .comment-list {
-                    margin-top: 12px;
-                    margin-left: 0;
-                    padding-left: 0;
-                }
-                .comment-item {
-                    background: #eaf1fb;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    margin-bottom: 6px;
-                    color: #444;
-                    list-style: none;
-                    box-shadow: 0 1px 4px rgba(58,123,213,0.04);
-                }
-            </style>
+            <link rel="stylesheet" href="/discussion-board.css">
         </head>
         <body>
             <div class="container">
@@ -393,23 +261,50 @@ app.get('/discussion/:id', async (req, res) => {
                     <button type="submit">Post Comment</button>
                 </form>
             </div>
-            <script>
-                document.getElementById('comment-form').addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    const comment = document.getElementById('comment').value;
-                    const res = await fetch('/posts/${post._id}/comments', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ comment })
-                    });
-                    if (res.ok) {
-                        alert('Comment posted!');
-                        location.reload();
-                    } else {
-                        alert('Error posting comment');
-                    }
-                });
-            </script>
+                        <script>
+                                    alert('DEBUG: Script loaded and running (discussion page)');
+                                // Decode JWT to get userId
+                                function getUserIdFromToken() {
+                                    const token = window.localStorage.getItem('authToken');
+                                    if (!token) return null;
+                                    try {
+                                        const payload = JSON.parse(atob(token.split('.')[1]));
+                                        return payload.id;
+                                    } catch (e) {
+                                        return null;
+                                    }
+                                }
+
+                                document.getElementById('comment-form').addEventListener('submit', async function(e) {
+                                                e.preventDefault();
+                                                alert('DEBUG: Submit button pressed for comment form (discussion page)');
+                                                console.log('Comment form submit handler triggered (discussion page)');
+                                            var comment = document.getElementById('comment').value;
+                                            var userId = getUserIdFromToken();
+                                            var titleElem = document.querySelector('.discussion-title');
+                                                var title = titleElem ? titleElem.textContent : 'UNKNOWN';
+                                                var contentElem = document.querySelector('.discussion-content');
+                                                var content = contentElem ? contentElem.textContent : 'UNKNOWN';
+                                                var safeTitle = JSON.stringify(title);
+                                                var safeContent = JSON.stringify(content);
+                                                alert('DEBUG: About to fetch POST for comment.\nUserID: ' + userId + '\nTitle: ' + safeTitle + '\nContent: ' + safeContent);
+                                            try {
+                                                var res = await fetch('/posts/${post._id}/comments', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ comment, userId })
+                                                });
+                                                if (res.ok) {
+                                                    alert('Comment posted!');
+                                                    location.reload();
+                                                } else {
+                                                    alert('Error posting comment. Title: ' + title + '\nContent: ' + content + '\nUserID: ' + userId);
+                                                }
+                                            } catch (err) {
+                                                alert('Network or script error posting comment. Title: ' + title + '\nContent: ' + content + '\nUserID: ' + userId + '\nError: ' + err);
+                                            }
+                                });
+                        </script>
         </body>
         </html>
     `);
@@ -430,9 +325,11 @@ app.get('/posts', async (req, res) => {
 // Create a new post
 app.post('/posts', async (req, res) => {
     try {
+        const mongoose = require('mongoose');
         const post = new Post({
-            title: req.body.title,
-            content: req.body.content
+            title: escapeHtml(req.body.title),
+            content: escapeHtml(req.body.content),
+            userId: req.body.userId ? mongoose.Types.ObjectId(req.body.userId) : undefined
         });
         await post.save();
         res.status(201).json(post);
@@ -448,13 +345,20 @@ app.post('/posts/:id/comments', async (req, res) => {
         if (!post) {
             return res.status(404).json({ error: 'Post not found' });
         }
-        post.comments.push({ text: req.body.comment });
+        const mongoose = require('mongoose');
+        if (!req.body.userId || !mongoose.Types.ObjectId.isValid(req.body.userId)) {
+            return res.status(400).json({ error: 'Missing or invalid userId for comment.' });
+        }
+    post.comments.push({ text: escapeHtml(req.body.comment), userId: mongoose.Types.ObjectId(req.body.userId) });
         await post.save();
         res.status(201).json(post);
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
 });
+
+const authRouter = require('./routes/auth');
+app.use('/api', authRouter);
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
